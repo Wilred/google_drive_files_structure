@@ -7,7 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class GoogleDriveFilesStructureApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(GoogleDriveFilesStructureApplication.class, args);
+        SpringApplication application = new SpringApplication(GoogleDriveFilesStructureApplication.class) ;
+        application.setAdditionalProfiles("ssl");
+        application.run(args);
     }
 
 }
