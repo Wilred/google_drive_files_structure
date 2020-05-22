@@ -30,7 +30,7 @@ public class FilesServiceTests {
     @Test
     public void main() throws IOException {
         List<File> files = filesService.searchFiles(flow.loadCredential(USER_IDENTIFIER_KEY), null, null, false, true);
-        List<FilesData> gFiles = filesService.group(flow.loadCredential(USER_IDENTIFIER_KEY),files);
+        List<FilesData> gFiles = filesService.group(flow.loadCredential(USER_IDENTIFIER_KEY), files);
         filesService.outFiles(gFiles);
     }
 

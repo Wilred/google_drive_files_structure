@@ -46,8 +46,9 @@ public class FilesData {
         this.containFile = containFile;
     }
 
-    public void addContainFile(FilesData file) {
+    public FilesData addContainFile(FilesData file) {
         this.containFile.add(file);
+        return file;
     }
 
 

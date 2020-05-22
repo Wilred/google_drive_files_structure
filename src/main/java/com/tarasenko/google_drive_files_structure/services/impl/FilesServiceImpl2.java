@@ -89,29 +89,70 @@ public class FilesServiceImpl2 implements FilesService {
 
     @Override
     public List<FilesData> group(Credential credential, List<File> files) {
-        List<FilesData> result;
-        File root = new File().setId(findMainDriveId(credential)).setName("Drive").setParents(Collections.singletonList("drive"));
+        File root = new File().setId(findMainDriveId(credential)).setName("Drive");
+        FilesData rootFolder = new FilesData(root);
 
-        List<FilesData> allFiles = files.stream().map(FilesData::new).collect(Collectors.toList());
-        List<FilesData> firstParent = new ArrayList<>(Collections.singletonList(new FilesData(root)));
+        Set<FilesData> allFiles = files.stream().map(FilesData::new).collect(Collectors.toSet());
+        Set<FilesData> filesWithoutParent = allFiles.stream()
+                .filter(fd -> CollectionUtils.isEmpty(fd.getFile().getParents()))
+                .collect(Collectors.toSet());
+        Set<FilesData> filesWithParent = allFiles.stream()
+                .filter(fd -> !CollectionUtils.isEmpty(fd.getFile().getParents()))
+                .filter(fd -> !fd.getFile().getMimeType().equals(MimeTypes.folder.getValue()))
+                .collect(Collectors.toSet());
+        Set<FilesData> folders = allFiles.stream()
+                .filter(fd -> fd.getFile().getMimeType().equals(MimeTypes.folder.getValue()))
+                .collect(Collectors.toSet());
 
-        result = group(firstParent, allFiles, 0);
-        result = result.get(0).getContainFile();
+        folders.add(rootFolder);
+
+        Set<FilesData> foldersWithFiles = group(folders, filesWithParent);
+        Set<FilesData> firstLevelFolders = foldersWithFiles.stream()
+                .filter(fd -> CollectionUtils.isEmpty(fd.getFile().getParents()))
+                .collect(Collectors.toSet());
+        Set<FilesData> foldersWithoutParent = foldersWithFiles.stream()
+                .filter(fd -> !CollectionUtils.isEmpty(fd.getFile().getParents()))
+                .collect(Collectors.toSet());
+
+        Set<FilesData> groupedFolders = groupFolders(firstLevelFolders, foldersWithoutParent);
+        List<FilesData> result = new ArrayList<>(groupedFolders);
+//        result = result.get(0).getContainFile();
         setPositionAndLevel(result, new AtomicInteger(0), new AtomicInteger(0));
         return result;
     }
 
-    private List<FilesData> group(List<FilesData> groupedFiles, List<FilesData> remainingFiles, int lvl) {
+    private Set<FilesData> groupFolders(Set<FilesData> groupedFolders, Set<FilesData> allFolders) {
+        if (!CollectionUtils.isEmpty(groupedFolders)) {
+            groupedFolders.forEach(gf -> {
+                allFolders.forEach(af -> {
+//                    if (!CollectionUtils.isEmpty(af.getFile().getParents())) {
+                        if (af.getFile().getParents().contains(gf.getFile().getId())) {
+                            gf.addContainFile(af);
+                        }
+//                    } else {
+//
+//                    }
+                });
+                groupFolders(new HashSet<>(gf.getContainFile()), allFolders);
+            });
+        }
+        return groupedFolders;
+    }
+
+    private Set<FilesData> group(Set<FilesData> groupedFiles, Set<FilesData> remainingFiles) {
         if (!CollectionUtils.isEmpty(remainingFiles)) {
-            remainingFiles.forEach(rf -> groupedFiles.forEach(gf -> {
-                if (rf.getFile().getParents().get(0).equals(gf.getFile().getId())) {
+            remainingFiles.forEach(rf ->
+                    groupedFiles.forEach(gf -> {
+                if (rf.getFile().getParents().contains(gf.getFile().getId())) {
                     gf.addContainFile(rf);
-                    gf.setLevel(lvl);
                 }
             }));
-            List<FilesData> newParents = groupedFiles.stream().flatMap(gf -> gf.getContainFile().stream()).collect(Collectors.toList());
+            Set<FilesData> newParents = groupedFiles.stream()
+                    .flatMap(gf -> gf.getContainFile().stream())
+//                    .filter(fd -> fd.getFile().getMimeType().equals(MimeTypes.folder.getValue()))
+                    .collect(Collectors.toSet());
             remainingFiles.removeAll(newParents);
-            group(newParents, remainingFiles, lvl + 1);
+            group(newParents, remainingFiles);
         }
         return groupedFiles;
     }
@@ -128,7 +169,7 @@ public class FilesServiceImpl2 implements FilesService {
 
     @Override
     public List<File> sort(List<File> fileList) {
-        return fileList.stream().sorted(new FileMimeTypeComparator().thenComparing(new FileNameComparator())).collect(Collectors.toList());
+        return fileList.stream().sorted(new FileNameComparator().thenComparing(new FileMimeTypeComparator())).collect(Collectors.toList());
     }
 
     @Override
@@ -148,8 +189,6 @@ public class FilesServiceImpl2 implements FilesService {
 
         return result.getFiles().get(0).getParents().get(0);
     }
-
-
 
     @Override
     public void outFiles(List<FilesData> gFiles) {
